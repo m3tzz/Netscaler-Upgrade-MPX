@@ -140,11 +140,11 @@ def disable_ecmp_on_ns(ip,USERNAME,PASSWORD,buffer_size,waittime,vlan_id,bash_va
     remote_conn.send("vtysh\n")
     remote_conn.send("conf t\n")
     remote_conn.send("router ospf\n")
-    remote_conn.send("passive-interface vlan"+vlan_id+"\n")
-    remote_conn.send("end\n")
+    remote_conn.send("passive-interface vlan"+str(vlan_id)+"\n")
+    remote_conn.send("exit\n")
+    remote_conn.send("exit\n")
     remote_conn.send("wr\n")
-    remote_conn.send("show ip ospf neighbor\n")
-    remote_conn.send("sh run\n")
+
     # Wait for the command to complete
     time.sleep(waittime)
 
@@ -189,11 +189,10 @@ def enable_ecmp_on_ns(ip,USERNAME,PASSWORD,buffer_size,waittime,vlan_id,bash_var
     remote_conn.send("vtysh\n")
     remote_conn.send("conf t\n")
     remote_conn.send("router ospf\n")
-    remote_conn.send("no passive-interface vlan"+vlan_id+"\n")
-    remote_conn.send("end\n")
+    remote_conn.send("no passive-interface vlan"+str(vlan_id)+"\n")
+    remote_conn.send("exit\n")
+    remote_conn.send("exit\n")
     remote_conn.send("wr\n")
-    remote_conn.send("sh run\n")
-    remote_conn.send("show ip ospf neighbor\n")
     # Wait for the command to complete
     time.sleep(waittime)
 
@@ -253,7 +252,11 @@ def check_image_upload_into_ns(ip,USERNAME,PASSWORD,buffer_size,waittime,myfile,
 
     remote_conn.close()
 
-# function to send the configs to device
+# Pinging netscaler
+def ping_netscaler(ip):
+    response = os.system("ping " + ip)
+    return response
+
 
 ###Usage:
 #      -F FIPS install
@@ -298,9 +301,9 @@ def upgrade_ns(ip,USERNAME,PASSWORD,buffer_size,waittime,myfile,bash_var_exit):
 
     remote_conn.send("shell\n")
     remote_conn.send("cd /var/nsinstall/build-folder-10.5.59.13/\n")
-    remote_conn.send("./installns -L -y\n")
+    remote_conn.send("./installns -L -Y -y\n")
     # Wait for the command to complete
-    time.sleep(waittime)
+    time.sleep(16)
 
     output = remote_conn.recv(buffer_size)
 
@@ -313,7 +316,7 @@ def upgrade_ns(ip,USERNAME,PASSWORD,buffer_size,waittime,myfile,bash_var_exit):
 if __name__ == '__main__':
 
     #Global Variables
-    ip='xx.xx.xx.xx'
+    ip='xx.xx.xx.x'
     version='10.5.59.13'
     destination= '/var/nsinstall/build-folder-'+version+'/'
     myfile='build-10.5-59.13_nc.tgz'
@@ -352,16 +355,15 @@ if __name__ == '__main__':
             print "\n"
             print "####### Upgrade NetScaler #######"
             upgrade_ns(ip,USERNAME,PASSWORD,buffer_size,waittime,myfile,bash_var_exit)
+            time.sleep(180)
+            # Pinging netscaler
+            if ping_netscaler(ip) == 0:
+                print ip, 'is up!'
 
-            time.sleep(480)
-            for nping in range(1,480):
-                subprocess.call("ping <IP>" , shell=True)
-                print "\n - " + str(nping)
-
-            #Enabled dinamyc Routing on netscaler
-            print "\n"
-            print "####### Enabled dinamyc Routing on netscaler (ECMP) #######"
-            enable_ecmp_on_ns(ip,USERNAME,PASSWORD,buffer_size,waittime,vlan_id,bash_var_exit)
+                #Enabled dinamyc Routing on netscaler
+                print "\n"
+                print "####### Enabled dinamyc Routing on netscaler (ECMP) #######"
+                enable_ecmp_on_ns(ip,USERNAME,PASSWORD,buffer_size,waittime,vlan_id,bash_var_exit)
 
         else:
             print "File upload failed"
